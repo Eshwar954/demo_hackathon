@@ -11,7 +11,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import demo_hackathon.example.demo.Dto.UserRequestDTO;
+import demo_hackathon.example.demo.Dto.UserResponseDTO;
 import demo_hackathon.example.demo.Service.UserService;
+import demo_hackathon.example.demo.model.Roles;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -20,18 +23,19 @@ import lombok.RequiredArgsConstructor;
 public class UserController {
 
     private final UserService userService;
+
     @PostMapping
-    public ResponseEntity<UserDto> createUser(@RequestBody UserDto dto) {
-        return ResponseEntity.ok(userService.createUser(dto));
+    public ResponseEntity<UserResponseDTO> createUser(@RequestBody UserRequestDTO dto) {
+        return ResponseEntity.ok(userService.create(dto));
     }
 
     @GetMapping
-    public ResponseEntity<List<UserDto>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
+    public ResponseEntity<List<UserResponseDTO>> getAllUsers() {
+        return ResponseEntity.ok(userService.getAll());
     }
 
     @GetMapping("/role/{role}")
-    public ResponseEntity<List<UserDto>> getUsersByRole(@PathVariable String role) {
-        return ResponseEntity.ok(userService.getUsersByRole(role));
+    public ResponseEntity<List<UserResponseDTO>> getUsersByRole(@PathVariable Roles role) {
+        return ResponseEntity.ok(userService.getByRole(role));
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import demo_hackathon.example.demo.Dto.CreditResponseDTO;
 import demo_hackathon.example.demo.Service.CreditService;
 import lombok.RequiredArgsConstructor;
 
@@ -20,12 +21,12 @@ public class CreditController {
     private final CreditService creditService;
 
     @GetMapping
-    public ResponseEntity<List<CreditDto>> getAllCredits() {
-        return ResponseEntity.ok(creditService.getAllCredits());
+    public ResponseEntity<List<CreditResponseDTO>> getAllCredits() {
+        return ResponseEntity.ok(creditService.getAll());
     }
 
     @GetMapping("/{projectId}")
-    public ResponseEntity<CreditDto> getByProject(@PathVariable Long projectId) {
+    public ResponseEntity<CreditResponseDTO> getByProject(@PathVariable Long projectId) {
         return ResponseEntity.ok(creditService.getByProject(projectId));
     }
 }

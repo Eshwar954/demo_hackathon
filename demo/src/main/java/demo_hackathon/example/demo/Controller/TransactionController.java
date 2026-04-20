@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import demo_hackathon.example.demo.Dto.TransactionRequestDTO;
+import demo_hackathon.example.demo.Dto.TransactionResponseDTO;
 import demo_hackathon.example.demo.Service.TransactionService;
 import lombok.RequiredArgsConstructor;
 
@@ -21,12 +23,12 @@ public class TransactionController {
     private final TransactionService transactionService;
 
     @PostMapping
-    public ResponseEntity<TransactionDto> purchaseCredits(@RequestBody TransactionDto dto) {
+    public ResponseEntity<TransactionResponseDTO> purchaseCredits(@RequestBody TransactionRequestDTO dto) {
         return ResponseEntity.ok(transactionService.purchase(dto));
     }
 
     @GetMapping
-    public ResponseEntity<List<TransactionDto>> getAllTransactions() {
+    public ResponseEntity<List<TransactionResponseDTO>> getAllTransactions() {
         return ResponseEntity.ok(transactionService.getAll());
     }
 }

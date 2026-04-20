@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import demo_hackathon.example.demo.Dto.LedgerResponseDTO;
 import demo_hackathon.example.demo.Service.LedgerService;
 import lombok.RequiredArgsConstructor;
 
@@ -20,12 +21,12 @@ public class LedgerController {
     private final LedgerService ledgerService;
 
     @GetMapping
-    public ResponseEntity<List<LedgerDto>> getLedger() {
+    public ResponseEntity<List<LedgerResponseDTO>> getLedger() {
         return ResponseEntity.ok(ledgerService.getAll());
     }
 
     @GetMapping("/credit/{creditId}")
-    public ResponseEntity<List<LedgerDto>> getByCredit(@PathVariable Long creditId) {
+    public ResponseEntity<List<LedgerResponseDTO>> getByCredit(@PathVariable Long creditId) {
         return ResponseEntity.ok(ledgerService.getByCredit(creditId));
     }
 }
