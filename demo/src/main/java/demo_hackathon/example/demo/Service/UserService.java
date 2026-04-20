@@ -1,8 +1,11 @@
 package demo_hackathon.example.demo.Service;
 
 import java.util.List;
+import java.util.Objects;
 
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import demo_hackathon.example.demo.Dto.UserRequestDTO;
 import demo_hackathon.example.demo.Dto.UserResponseDTO;
@@ -63,4 +66,22 @@ public class UserService {
                 ))
                 .toList();
     }
+
+        public UserResponseDTO authenticate(String email, String password) {
+                User user = userRepo.findByEmailIgnoreCase(email.trim())
+                                .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "Invalid credentials"));
+
+                if (!Objects.equals(user.getPassword(), password)) {
+                        throw new ResponseStatusException(UNAUTHORIZED, "Invalid credentials");
+                }
+
+                return new UserResponseDTO(
+                                user.getId(),
+                                user.getName(),
+                                user.getEmail(),
+                                user.getOrganizationName(),
+                                user.getRole(),
+                                user.getCreatedAt()
+                );
+        }
 }
