@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import demo_hackathon.example.demo.Dto.VerificationDto;
 import demo_hackathon.example.demo.Service.VerificationService;
 import lombok.RequiredArgsConstructor;
 

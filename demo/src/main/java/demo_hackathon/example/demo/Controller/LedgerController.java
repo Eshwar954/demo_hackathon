@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import demo_hackathon.example.demo.Dto.LedgerDto;
 import demo_hackathon.example.demo.Service.LedgerService;
 import lombok.RequiredArgsConstructor;
 
