@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import demo_hackathon.example.demo.Dto.LoginRequestDTO;
 import demo_hackathon.example.demo.Dto.UserRequestDTO;
 import demo_hackathon.example.demo.Dto.UserResponseDTO;
 import demo_hackathon.example.demo.Service.UserService;
@@ -31,6 +32,11 @@ public class UserController {
     @GetMapping
     public ResponseEntity<List<UserResponseDTO>> getAllUsers() {
         return ResponseEntity.ok(userService.getAll());
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<UserResponseDTO> login(@RequestBody LoginRequestDTO dto) {
+        return ResponseEntity.ok(userService.authenticate(dto.getEmail(), dto.getPassword()));
     }
 
     @GetMapping("/role/{role}")
