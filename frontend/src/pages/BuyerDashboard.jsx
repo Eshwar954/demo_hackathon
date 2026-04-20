@@ -1,34 +1,51 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Table from '../components/Table';
 import { useLocation } from 'react-router-dom';
+import { listingAPI, transactionAPI } from '../services/api';
 
 const BuyerDashboard = () => {
   const location = useLocation();
   const path = location.pathname;
 
-  /* ------------------- STATE & MOCK DATA ------------------- */
+  /* ------------------- STATE ------------------- */
   
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
   const [buyQuantity, setBuyQuantity] = useState('');
   const [notification, setNotification] = useState(null);
 
-  const [transactions, setTransactions] = useState([
-    { project: "Amazonia Reforestation", quantity: "20", totalPrice: "$250.00", status: "SUCCESS", date: "2024-10-15" },
-    { project: "Solar Phase 1", quantity: "30", totalPrice: "$330.00", status: "SUCCESS", date: "2024-10-10" },
-    { project: "Wind Park Bravo", quantity: "15", totalPrice: "$180.00", status: "FAILED", date: "2024-09-22" }
-  ]);
-
-  const marketHeaders = ["Project", "Price per Credit", "Available Quantity", "Seller", "Action"];
-  const listings = [
-    { id: "LST-1", project: "Reforestation Alpha", price: "$12.00", available: "1000", seller: "EcoCorp Trading" },
-    { id: "LST-2", project: "Indonesian Solar", price: "$11.00", available: "5000", seller: "GreenTech Ltd" },
-    { id: "LST-3", project: "Congo Wind Farm", price: "$12.50", available: "12200", seller: "Silva Tech" },
-  ];
-
+  const [transactions, setTransactions] = useState([]);
   const transactionHeaders = ["Project", "Quantity", "Total Price", "Status", "Date"];
 
-  /* ------------------- HANDLERS ------------------- */
+  const marketHeaders = ["Project", "Price per Credit", "Available Quantity", "Seller", "Action"];
+  const [listings, setListings] = useState([]);
+
+  /* ------------------- DATA FETCHING (AXIOS) ------------------- */
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        if (path.includes('/transactions')) {
+          const res = await transactionAPI.getAll();
+          setTransactions(res.data || []);
+        } else {
+          // Marketplace / Default Fetch
+          const res = await listingAPI.getAll();
+          setListings(res.data || []);
+
+          // Silently pre-fetch transactions to calculate totalPurchased metric
+          const tRes = await transactionAPI.getAll();
+          setTransactions(tRes.data || []);
+        }
+      } catch(err) {
+        console.error("Backend connection failed.", err);
+      }
+    };
+    fetchData();
+  }, [path]);
+
+
+  /* ------------------- HANDLERS (AXIOS) ------------------- */
 
   const handleBuyClick = (listing) => {
     setSelectedListing(listing);
@@ -36,33 +53,39 @@ const BuyerDashboard = () => {
     setShowBuyModal(true);
   };
 
-  const handlePurchase = (e) => {
+  const handlePurchase = async (e) => {
     e.preventDefault();
     if (buyQuantity > 0 && selectedListing) {
-      if (parseInt(buyQuantity) > parseInt(selectedListing.available)) {
+      if (parseInt(buyQuantity) > parseInt(selectedListing.available || 0)) {
         setNotification("Requested quantity exceeds available market supply.");
         setTimeout(() => setNotification(null), 4000);
         return;
       }
 
-      const priceVal = parseFloat(selectedListing.price.replace('$', ''));
+      const priceVal = parseFloat(selectedListing.price ? selectedListing.price.replace('$', '') : 0);
       const total = priceVal * parseInt(buyQuantity);
       
-      setTransactions([
-        { 
-          project: selectedListing.project, 
-          quantity: buyQuantity, 
-          totalPrice: `$${total.toFixed(2)}`, 
-          status: "SUCCESS", 
-          date: new Date().toISOString().split('T')[0] 
-        },
-        ...transactions
-      ]);
-      
-      setShowBuyModal(false);
-      setSelectedListing(null);
-      setNotification(`Successfully purchased ${buyQuantity} credits from ${selectedListing.project}!`);
-      setTimeout(() => setNotification(null), 4000);
+      const payload = {
+         project: selectedListing.project,
+         quantity: buyQuantity,
+         totalPrice: total,
+      };
+
+      try {
+        await transactionAPI.purchase(payload);
+        
+        // Refresh local UI to reflect purchase success immediately
+        const tRes = await transactionAPI.getAll();
+        setTransactions(tRes.data || []);
+        
+        setShowBuyModal(false);
+        setSelectedListing(null);
+        setNotification(`Successfully purchased ${buyQuantity} credits from ${selectedListing.project}!`);
+        setTimeout(() => setNotification(null), 4000);
+
+      } catch (err) {
+        alert("Transaction failed. Backend server unavailable.");
+      }
     }
   };
 
@@ -70,16 +93,16 @@ const BuyerDashboard = () => {
 
   // Calculate total purchased generic summary metric
   const totalPurchased = transactions
-    .filter(t => t.status === 'SUCCESS')
-    .reduce((acc, t) => acc + parseInt(t.quantity), 0);
+    .filter(t => (t.status || t.transactionStatus) === 'SUCCESS')
+    .reduce((acc, t) => acc + parseInt(t.quantity || 0), 0);
 
   const displayListings = listings.map(l => ({
-     project: l.project,
-     price: l.price,
-     available: l.available,
-     seller: l.seller,
+     project: l.project || l.carbonProject || 'Unknown',
+     price: l.price || '$0.00',
+     available: l.quantity || l.availableQuantity || '0',
+     seller: l.seller || 'Market',
      action: (
-       <button onClick={() => handleBuyClick(l)} className="text-primary hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest border border-primary/30 px-3 py-1.5 rounded transition-all">
+       <button onClick={() => handleBuyClick({ ...l, available: l.quantity || l.availableQuantity })} className="text-primary hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest border border-primary/30 px-3 py-1.5 rounded transition-all">
          Buy
        </button>
      )
@@ -144,7 +167,7 @@ const BuyerDashboard = () => {
               </div>
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-on-surface-variant">Seller:</span>
-                <span className="font-bold text-on-surface truncate ml-2 max-w-[150px]">{selectedListing.seller}</span>
+                <span className="font-bold text-on-surface truncate ml-2 max-w-[150px]">{selectedListing.seller || 'Market'}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-on-surface-variant">Unit Price:</span>
@@ -164,7 +187,7 @@ const BuyerDashboard = () => {
               <div className="bg-surface-container border border-outline-variant px-4 py-3 rounded-lg flex justify-between items-center shadow-inner">
                 <span className="font-label text-xs uppercase tracking-widest font-bold text-on-surface-variant">Total Cost</span>
                 <span className="font-headline text-xl font-extrabold text-on-surface">
-                  {buyQuantity ? `$${(parseFloat(selectedListing.price.replace('$', '')) * parseInt(buyQuantity)).toFixed(2)}` : '$0.00'}
+                  {buyQuantity ? `$${(parseFloat(selectedListing.price ? selectedListing.price.replace('$', '') : 0) * parseInt(buyQuantity)).toFixed(2)}` : '$0.00'}
                 </span>
               </div>
 

@@ -1,22 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../components/Widgets';
 import Table from '../components/Table';
 import { useLocation } from 'react-router-dom';
+import { projectAPI, listingAPI, creditAPI, transactionAPI } from '../services/api';
 
 const OwnerDashboard = () => {
   const location = useLocation();
   const path = location.pathname;
 
-  /* ------------------- STATE & MOCK DATA ------------------- */
-
-  // 1. Projects State
-  const projectHeaders = ["Project Name", "Type", "Reduction", "Status"];
-  const [projects, setProjects] = useState([
-    { name: "Reforestation Alpha", type: "Forestry", reduction: "4,500 Tons", status: "VERIFIED" },
-    { name: "Solar Phase 1", type: "Renewable Energy", reduction: "5,000 Tons", status: "UNDER_VERIFICATION" },
-    { name: "Wind Park Bravo", type: "Renewable Energy", reduction: "12,000 Tons", status: "CREATED" }
-  ]);
-  const [newProject, setNewProject] = useState({ name: '', type: 'Forestry', location: '', reduction: '', startDate: '', endDate: '' });
+  /* ------------------- STATE ------------------- */
 
   const [notification, setNotification] = useState(null);
   const showNotification = (msg) => {
@@ -24,54 +16,112 @@ const OwnerDashboard = () => {
     setTimeout(() => setNotification(null), 4000);
   };
 
+  // 1. Projects State
+  const projectHeaders = ["Project Name", "Type", "Reduction", "Status"];
+  const [projects, setProjects] = useState([]);
+  const [newProject, setNewProject] = useState({ name: '', type: 'Forestry', location: '', reduction: '', startDate: '', endDate: '' });
+
   // 2. Issuance / Credits State
   const creditHeaders = ["Project", "Total Credits", "Available Credits", "Status"];
-  const [credits, setCredits] = useState([
-    { project: "Reforestation Alpha", total: "4,500", available: "1,500", status: "ISSUED" },
-    { project: "Solar Phase 1", total: "-", available: "-", status: "PENDING_MINT" },
-  ]);
+  const [credits, setCredits] = useState([]);
 
   // 3. Listings State
   const listingHeaders = ["Project", "Price", "Quantity", "Status"];
-  const [listings, setListings] = useState([
-    { project: "Reforestation Alpha", price: "$12.00", quantity: "1,000", status: "ACTIVE" },
-    { project: "Reforestation Alpha", price: "$12.50", quantity: "2,000", status: "CLOSED" }
-  ]);
-  const [newListing, setNewListing] = useState({ project: 'Reforestation Alpha', price: '', quantity: '' });
+  const [listings, setListings] = useState([]);
+  const [newListing, setNewListing] = useState({ project: '', price: '', quantity: '' });
 
   // 4. Sales State
   const salesHeaders = ["Buyer", "Quantity", "Price", "Status"];
-  const sales = [
-    { buyer: "EcoCorp Trading", quantity: "2,000", price: "$12.50", status: "SUCCESS" },
-    { buyer: "Global Tech", quantity: "500", price: "$11.00", status: "FAILED" }
-  ];
+  const [sales, setSales] = useState([]);
 
 
-  /* ------------------- HANDLERS ------------------- */
+  /* ------------------- DATA FETCHING (AXIOS) ------------------- */
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        if (path.includes('/projects')) {
+          const res = await projectAPI.getAll();
+          setProjects(res.data || []);
+        } else if (path.includes('/credits')) {
+          const res = await creditAPI.getAll();
+          setCredits(res.data || []);
+        } else if (path.includes('/listings')) {
+          const cRes = await creditAPI.getAll();
+          setCredits(cRes.data || []);
+          const lRes = await listingAPI.getAll();
+          setListings(lRes.data || []);
+        } else if (path.includes('/sales')) {
+          const res = await transactionAPI.getAll();
+          setSales(res.data || []);
+        } else if (!path.includes('/create-project')) {
+          // Dashboard Summary
+          const pRes = await projectAPI.getAll();
+          setProjects(pRes.data || []);
+          const lRes = await listingAPI.getAll();
+          setListings(lRes.data || []);
+        }
+      } catch (err) {
+        console.error("Backend API Connection Failed.", err);
+      }
+    };
+    fetchData();
+  }, [path]);
 
-  const handleCreateProject = (e) => {
+  /* ------------------- HANDLERS (AXIOS) ------------------- */
+
+  const handleCreateProject = async (e) => {
     e.preventDefault();
     if (newProject.name && newProject.reduction) {
-      setProjects([
-        { name: newProject.name, type: newProject.type, reduction: `${newProject.reduction} Tons`, status: "CREATED" },
-        ...projects
-      ]);
-      setNewProject({ name: '', type: 'Forestry', location: '', reduction: '', startDate: '', endDate: '' });
-      showNotification("Project Successfully Created & Pending Audit.");
+      try {
+        await projectAPI.create(newProject);
+        setNewProject({ name: '', type: 'Forestry', location: '', reduction: '', startDate: '', endDate: '' });
+        showNotification("Project Successfully Created & Pending Audit.");
+      } catch (err) {
+        alert("Failed to reach server. Backend unavailable.");
+      }
     }
   };
 
-  const handleCreateListing = (e) => {
+  const handleCreateListing = async (e) => {
     e.preventDefault();
     if (newListing.price && newListing.quantity) {
-      setListings([
-        { project: newListing.project, price: `$${newListing.price}`, quantity: newListing.quantity, status: "ACTIVE" },
-        ...listings
-      ]);
-      setNewListing({ project: 'Reforestation Alpha', price: '', quantity: '' });
-      showNotification("Credits listed securely onto the active order book.");
+      try {
+        await listingAPI.create(newListing);
+        const lRes = await listingAPI.getAll();
+        setListings(lRes.data || []);
+        setNewListing({ project: '', price: '', quantity: '' });
+        showNotification("Credits listed securely onto the active order book.");
+      } catch (err) {
+        alert("Failed to reach server. Backend unavailable.");
+      }
     }
   };
+
+  /* ------------------- COMPUTED FORMATTERS ------------------- */
+  const displayProjects = projects.map(p => ({
+     name: p.name || p.carbonProject,
+     type: p.type || 'Standard',
+     reduction: p.reduction || p.verifiedReduction,
+     status: p.status || p.verificationStatus
+  }));
+
+  const displayCredits = credits.map(c => ({
+     project: c.project || 'Unknown',
+     total: c.totalCredits || '-',
+     available: c.availableCredits || '-',
+     status: c.status || 'PENDING_MINT'
+  }));
+
+  const displayListings = listings.map(l => ({
+     project: l.project || 'Unknown',
+     price: l.price || '$0.00',
+     quantity: l.quantity || '0',
+     status: l.status || 'ACTIVE'
+  }));
+
+  // Map backend DTO array (assuming specific names exist based on controller)
+  const availableProjects = credits.filter(c => (c.status || c.creditStatus) === 'ISSUED').map(c => c.project || 'Unknown');
 
   /* ------------------- ROUTING VIEWS ------------------- */
 
@@ -113,6 +163,13 @@ const OwnerDashboard = () => {
             <span className="material-symbols-outlined">publish</span> Submit Project
           </button>
         </form>
+
+        {notification && (
+          <div className="fixed bottom-8 right-8 bg-success-container text-on-success-container border border-success/20 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-8 z-50">
+            <span className="material-symbols-outlined text-success text-2xl">check_circle</span>
+            <span className="font-label font-bold text-sm tracking-wide">{notification}</span>
+          </div>
+        )}
       </div>
     );
   }
@@ -121,7 +178,7 @@ const OwnerDashboard = () => {
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div><h1 className="font-headline text-3xl font-extrabold mb-2">My Projects</h1><p className="text-on-surface-variant">View the status of your submitted projects.</p></div>
-        <Table headers={projectHeaders} data={projects} />
+        <Table headers={projectHeaders} data={displayProjects} />
       </div>
     );
   }
@@ -130,14 +187,12 @@ const OwnerDashboard = () => {
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div><h1 className="font-headline text-3xl font-extrabold mb-2">Credit Balance</h1><p className="text-on-surface-variant">Manage your mintable and available carbon assets.</p></div>
-        <Table headers={creditHeaders} data={credits} />
+        <Table headers={creditHeaders} data={displayCredits} />
       </div>
     );
   }
 
   if (path.includes('/listings')) {
-    const availableProjects = credits.filter(c => c.status === 'ISSUED').map(c => c.project);
-
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="flex flex-col lg:flex-row gap-8">
@@ -150,8 +205,9 @@ const OwnerDashboard = () => {
                <form className="space-y-4" onSubmit={handleCreateListing}>
                   <div>
                     <label className="block font-label text-[10px] font-bold uppercase tracking-widest text-outline mb-1">Select Credit / Project</label>
-                    <select value={newListing.project} onChange={e => setNewListing({...newListing, project: e.target.value})} className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-3 outline-none text-sm cursor-pointer">
-                      {availableProjects.map(p => <option key={p}>{p}</option>)}
+                    <select required value={newListing.project} onChange={e => setNewListing({...newListing, project: e.target.value})} className="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-3 outline-none text-sm cursor-pointer">
+                      <option value="" disabled>Select live project...</option>
+                      {availableProjects.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
                   <div>
@@ -171,10 +227,17 @@ const OwnerDashboard = () => {
           
           <div className="lg:w-2/3 space-y-4">
              <div><h2 className="font-headline text-2xl font-bold mb-1">My Active Listings</h2><p className="text-on-surface-variant mb-4 text-sm">Monitor your current market exposures.</p></div>
-             <Table headers={listingHeaders} data={listings} />
+             <Table headers={listingHeaders} data={displayListings} />
           </div>
 
         </div>
+
+        {notification && (
+          <div className="fixed bottom-8 right-8 bg-success-container text-on-success-container border border-success/20 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-8 z-50">
+            <span className="material-symbols-outlined text-success text-2xl">check_circle</span>
+            <span className="font-label font-bold text-sm tracking-wide">{notification}</span>
+          </div>
+        )}
       </div>
     );
   }
@@ -183,7 +246,7 @@ const OwnerDashboard = () => {
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div><h1 className="font-headline text-3xl font-extrabold mb-2">Sales & Transactions</h1><p className="text-on-surface-variant">Trace your closed ecosystem transactions and buyer receipts.</p></div>
-        <Table headers={salesHeaders} data={sales} />
+        <Table headers={salesHeaders} data={sales} /> // Adjust with mapped data later
       </div>
     );
   }
@@ -197,25 +260,17 @@ const OwnerDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card title="Total Projects" value={projects.length} icon="park" trend="+1" isPositive={true}/>
-        <Card title="Total Credits" value="4,500" icon="public" />
-        <Card title="Credits Sold" value="2,000" icon="payments" trend="steady" isPositive={true}/>
-        <Card title="Active Listings" value={listings.filter(l => l.status === 'ACTIVE').length} icon="storefront" trend="live" isPositive={true}/>
+        <Card title="Total Projects" value={projects.length} icon="park" trend="Live" isPositive={true}/>
+        <Card title="Active Listings" value={listings.filter(l => l.status === 'ACTIVE').length} icon="storefront" trend="API" isPositive={true}/>
       </div>
 
       <div className="space-y-4">
         <h2 className="font-headline text-xl font-bold flex items-center gap-2">
            <span className="material-symbols-outlined text-primary">eco</span> Your Projects Flow
         </h2>
-        <Table headers={projectHeaders} data={projects} />
+        <Table headers={projectHeaders} data={displayProjects} />
       </div>
 
-      {notification && (
-        <div className="fixed bottom-8 right-8 bg-success-container text-on-success-container border border-success/20 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-8 z-50">
-          <span className="material-symbols-outlined text-success text-2xl">check_circle</span>
-          <span className="font-label font-bold text-sm tracking-wide">{notification}</span>
-        </div>
-      )}
     </div>
   );
 };

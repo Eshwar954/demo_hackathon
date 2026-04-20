@@ -1,6 +1,7 @@
 package demo_hackathon.example.demo.Controller;
 
 import java.util.List;
+import demo_hackathon.example.demo.Dto.CreditDto;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

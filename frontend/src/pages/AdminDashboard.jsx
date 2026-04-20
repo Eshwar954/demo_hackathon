@@ -1,98 +1,121 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../components/Widgets';
 import Table from '../components/Table';
 import { useLocation } from 'react-router-dom';
+import { projectAPI, userAPI, transactionAPI, creditAPI, ledgerAPI } from '../services/api';
 
 const AdminDashboard = () => {
   const location = useLocation();
   const path = location.pathname;
 
-  /* ------------------- STATE & MOCK DATA ------------------- */
+  /* ------------------- STATE ------------------- */
 
   // 1. User Management State
   const [showUserModal, setShowUserModal] = useState(false);
   const [filterRole, setFilterRole] = useState('All');
   const userHeaders = ["Name", "Email", "Organization", "Role"];
-  const [networkUsers, setNetworkUsers] = useState([
-    { name: "EcoCorp Admin", email: "admin@ecocorp.com", org: "EcoCorp", role: "Owner" },
-    { name: "Global Trade Inc", email: "trader@globaltrade.com", org: "GlobalTrade", role: "Buyer" },
-  ]);
+  const [networkUsers, setNetworkUsers] = useState([]);
   const [newUser, setNewUser] = useState({ name: '', email: '', org: '', password: '', role: 'Buyer' });
 
   // 2. Project Verification State
   const projectHeaders = ["Project Name", "Type", "Reduction", "Status", "Action"];
-  const [projects, setProjects] = useState([
-    { id: "PRJ-01", name: "Amazonia Reforestation", type: "Forestry", reduction: "10,500 Tons", status: "VERIFIED" },
-    { id: "PRJ-02", name: "Indonesian Solar", type: "Renewable Energy", reduction: "5,000 Tons", status: "UNDER_VERIFICATION" },
-    { id: "PRJ-03", name: "Congo Wind Farm", type: "Renewable Energy", reduction: "12,200 Tons", status: "CREATED" }
-  ]);
+  const [projects, setProjects] = useState([]);
 
   // 3. Credit Issuance Tracking State
   const issuanceHeaders = ["Project", "Total Credits", "Available", "Status"];
-  const issuances = [
-    { project: "Amazonia Reforestation", total: "10,500", available: "5,000", status: "ISSUED" },
-    { project: "Congo Wind Farm", total: "12,200", available: "12,200", status: "PENDING_MINT" }
-  ];
+  const [issuances, setIssuances] = useState([]);
 
   // 4. Transaction Monitoring State
   const [txFilterStatus, setTxFilterStatus] = useState('All');
   const [txFilterDate, setTxFilterDate] = useState('');
   const transactionHeaders = ["Buyer", "Project", "Quantity", "Price", "Status", "Date"];
-  const transactions = [
-    { buyer: "GlobalTrade", project: "Amazonia Ref...", quantity: "1,000", price: "$12.50", status: "SUCCESS", date: "2024-10-12" },
-    { buyer: "TechLogistics", project: "Congo Wind Farm", quantity: "2,500", price: "$14.00", status: "FAILED", date: "2024-10-10" },
-    { buyer: "GreenCorp", project: "Amazonia Ref...", quantity: "500", price: "$12.00", status: "SUCCESS", date: "2024-10-15" }
-  ];
+  const [transactions, setTransactions] = useState([]);
 
   // 5. Ledger / Audit State
   const ledgerHeaders = ["Credit ID", "Type", "Quantity", "Balance", "Date"];
-  const ledgers = [
-    { creditId: "CRD-9001", type: "MINT", quantity: "+10,500", balance: "10,500", date: "2024-10-01" },
-    { creditId: "CRD-9002", type: "TRANSFER", quantity: "-1,000", balance: "9,500", date: "2024-10-12" },
-    { creditId: "CRD-9003", type: "TRANSFER", quantity: "-500", balance: "9,000", date: "2024-10-15" },
-    { creditId: "CRD-9004", type: "MINT", quantity: "+12,200", balance: "21,200", date: "2024-10-19" },
-  ];
+  const [ledgers, setLedgers] = useState([]);
 
-  /* ------------------- HANDLERS ------------------- */
+  /* ------------------- DATA FETCHING (AXIOS) ------------------- */
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        if (path.includes('/users')) {
+          const res = await userAPI.getAll();
+          setNetworkUsers(res.data || []);
+        } else if (path.includes('/projects')) {
+          const res = await projectAPI.getAll();
+          setProjects(res.data || []);
+        } else if (path.includes('/transactions')) {
+          const res = await transactionAPI.getAll();
+          setTransactions(res.data || []);
+        } else if (path.includes('/ledger')) {
+          const res = await ledgerAPI.getAll();
+          setLedgers(res.data || []);
+        } else if (path.includes('/issuance')) {
+          const res = await creditAPI.getAll();
+          setIssuances(res.data || []);
+        } else {
+          // Dashboard Summary Logic
+          const projRes = await projectAPI.getAll();
+          setProjects(projRes.data || []);
+        }
+      } catch (err) {
+        console.error("Backend API Connection Failed. Ensure Spring Boot is running and configured.", err);
+      }
+    };
+    fetchData();
+  }, [path]);
 
-  const handleCreateUser = (e) => {
+  /* ------------------- HANDLERS (AXIOS) ------------------- */
+
+  const handleCreateUser = async (e) => {
     e.preventDefault();
     if(newUser.name && newUser.email && newUser.org && newUser.password){
-      setNetworkUsers([{ name: newUser.name, email: newUser.email, org: newUser.org, role: newUser.role }, ...networkUsers]);
-      setShowUserModal(false);
-      setNewUser({ name: '', email: '', org: '', password: '', role: 'Buyer' });
+      try {
+        await userAPI.create(newUser);
+        const res = await userAPI.getAll();
+        setNetworkUsers(res.data || []);
+        setShowUserModal(false);
+        setNewUser({ name: '', email: '', org: '', password: '', role: 'Buyer' });
+      } catch(err) {
+        alert("Failed to create user. Backend unavailable.");
+      }
     }
   };
 
-  const updateProjectStatus = (id, newStatus) => {
-    setProjects(prev => prev.map(p => p.id === id ? { ...p, status: newStatus } : p));
+  const updateProjectStatus = async (id, newStatus) => {
+    try {
+      await projectAPI.updateStatus(id, newStatus);
+      const res = await projectAPI.getAll();
+      setProjects(res.data || []);
+    } catch(err) {
+      alert("Failed to update project status. Backend unavailable.");
+    }
   };
 
 
   /* ------------------- COMPUTED DATA ------------------- */
 
-  // Filtered Users
   const filteredUsers = filterRole === 'All' ? networkUsers : networkUsers.filter(u => u.role === filterRole);
 
-  // Filtered Transactions
   const filteredTransactions = transactions.filter(t => {
     const matchStatus = txFilterStatus === 'All' || t.status === txFilterStatus;
-    const matchDate = t.date.includes(txFilterDate); // Soft search match
+    const matchDate = t.date ? t.date.includes(txFilterDate) : true;
     return matchStatus && matchDate;
   });
 
-  // Mapped Projects with Action Buttons
   const displayProjects = projects.map(p => ({
-    name: p.name,
-    type: p.type,
-    reduction: p.reduction,
-    status: p.status,
-    action: p.status === 'UNDER_VERIFICATION' ? (
+    name: p.name || p.carbonProject,
+    type: p.type || 'Standard',
+    reduction: p.reduction || p.verifiedReduction,
+    status: p.status || p.verificationStatus,
+    action: (p.status === 'UNDER_VERIFICATION' || p.verificationStatus === 'UNDER_VERIFICATION') ? (
       <div className="flex gap-2">
         <button onClick={() => updateProjectStatus(p.id, 'VERIFIED')} className="text-success hover:bg-success/10 font-bold text-[10px] uppercase tracking-widest border border-success/30 px-2 py-1 rounded">Approve</button>
         <button onClick={() => updateProjectStatus(p.id, 'REJECTED')} className="text-error hover:bg-error/10 font-bold text-[10px] uppercase tracking-widest border border-error/30 px-2 py-1 rounded">Reject</button>
       </div>
-    ) : p.status === 'CREATED' ? (
+    ) : (p.status === 'CREATED' || p.verificationStatus === 'CREATED') ? (
       <button onClick={() => updateProjectStatus(p.id, 'UNDER_VERIFICATION')} className="text-primary hover:bg-primary/10 font-bold text-[10px] uppercase tracking-widest border border-primary/30 px-2 py-1 rounded">Start Audit</button>
     ) : (
       <span className="text-outline text-[10px] font-bold uppercase tracking-widest">Locked</span>
@@ -199,10 +222,10 @@ const AdminDashboard = () => {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div><h1 className="font-headline text-3xl font-extrabold mb-2">Dashboard Summary</h1><p className="text-on-surface-variant">Global overview of network activity.</p></div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card title="Total Projects" value="124" icon="park" trend="+3" isPositive={true}/>
-        <Card title="Credits Issued" value="1.2M" icon="generating_tokens" trend="+50k" isPositive={true}/>
-        <Card title="Credits Sold" value="890k" icon="shopping_cart" />
-        <Card title="Total Transactions" value="15,482" icon="sync_alt" trend="+12%" isPositive={true}/>
+        <Card title="Total Projects" value={projects.length} icon="park" trend="live" isPositive={true}/>
+        <Card title="Credits Issued" value={issuances.length} icon="generating_tokens" />
+        <Card title="Credits Sold" value="Live API" icon="shopping_cart" />
+        <Card title="Total Transactions" value={transactions.length} icon="sync_alt" trend="live" isPositive={true}/>
       </div>
       <div>
          <h2 className="font-headline text-xl font-bold flex items-center gap-2 mb-4"><span className="material-symbols-outlined text-primary">rule</span> Projects Under Review</h2>
