@@ -1,7 +1,16 @@
 import SimpleTable from '../components/SimpleTable'
 
-function CreditsPage({ credits }) {
-  const rows = credits.map((credit) => ({
+function CreditsPage({ role, credits, listings }) {
+  const visibleCredits =
+    role === 'BUYER'
+      ? credits.filter((credit) =>
+          listings.some(
+            (listing) => String(listing.creditId) === String(credit.id) && listing.status === 'ACTIVE',
+          ),
+        )
+      : credits
+
+  const rows = visibleCredits.map((credit) => ({
     id: credit.id,
     cells: [credit.id, credit.projectId, credit.totalCredits, credit.availableCredits, credit.issueDate, credit.status],
   }))
@@ -11,7 +20,11 @@ function CreditsPage({ credits }) {
       <section className="content-card">
         <div className="section-header">
           <h3>Credit status</h3>
-          <p>Track issued credits and their availability by project.</p>
+          <p>
+            {role === 'BUYER'
+              ? 'Track credits that are currently available in active listings.'
+              : 'Track issued credits and their availability by project.'}
+          </p>
         </div>
         <SimpleTable
           columns={['ID', 'Project', 'Total', 'Available', 'Issue date', 'Status']}

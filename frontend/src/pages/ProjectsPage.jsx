@@ -1,11 +1,24 @@
 import SimpleTable from '../components/SimpleTable'
 import { enumLabels } from '../services/api'
 
-function ProjectsPage({ role, sessionUser, form, onChange, onSubmit, projects, loading }) {
+function ProjectsPage({ role, sessionUser, form, onChange, onSubmit, projects, credits, listings, loading }) {
   const visibleProjects =
     role === 'PROJECT_OWNER' && sessionUser?.id
       ? projects.filter((project) => String(project.ownerId) === String(sessionUser.id))
-      : projects
+      : role === 'BUYER'
+        ? projects.filter((project) => {
+            const activeCreditIds = new Set(
+              listings
+                .filter((listing) => listing.status === 'ACTIVE')
+                .map((listing) => String(listing.creditId)),
+            )
+
+            return credits.some(
+              (credit) =>
+                String(credit.projectId) === String(project.id) && activeCreditIds.has(String(credit.id)),
+            )
+          })
+        : projects
 
   const canCreate = role === 'PROJECT_OWNER'
 
@@ -51,7 +64,11 @@ function ProjectsPage({ role, sessionUser, form, onChange, onSubmit, projects, l
         <section className="content-card read-only-card">
           <p className="read-only-label">Read only</p>
           <h3>Project list</h3>
-          <p>Only project owners can create projects. This view shows the available project records.</p>
+          <p>
+            {role === 'BUYER'
+              ? 'Buyers can view only projects that currently have active listings.'
+              : 'Only project owners can create projects. This view shows the available project records.'}
+          </p>
         </section>
       )}
 

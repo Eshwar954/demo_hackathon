@@ -195,15 +195,6 @@ function DashboardPage({
             />
           </section>
 
-          <section className="content-card action-banner">
-            <div>
-              <h3>Review full records</h3>
-              <p>Use the left menu to open Projects, Credits, Listings, Transactions, and Ledger details.</p>
-            </div>
-            <button type="button" className="secondary-button" onClick={() => onNavigate('Projects')}>
-              Open records
-            </button>
-          </section>
         </>
       ) : null}
 

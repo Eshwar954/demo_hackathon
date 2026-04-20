@@ -78,6 +78,9 @@ public class TransactionService {
 
         return new TransactionResponseDTO(
                 saved.getId(),
+                saved.getCreditListing().getId(),
+                saved.getBuyer(),
+                saved.getCreditListing().getCarbonCredit().getCarbonProject().getCreatedBy().getId(),
                 saved.getPurchasedQuantity(),
                 saved.getTotalPrice(),
                 saved.getTransactionStatus()
@@ -88,6 +91,9 @@ public class TransactionService {
             .stream()
             .map(t -> new TransactionResponseDTO(
                     t.getId(),
+                    t.getCreditListing().getId(),
+                    t.getBuyer(),
+                    t.getCreditListing().getCarbonCredit().getCarbonProject().getCreatedBy().getId(),
                     t.getPurchasedQuantity(),
                     t.getTotalPrice(),
                     t.getTransactionStatus()

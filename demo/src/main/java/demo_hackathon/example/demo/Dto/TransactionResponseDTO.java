@@ -10,6 +10,9 @@ import lombok.Data;
 public class TransactionResponseDTO {
 
     private Long id;
+    private Long listingId;
+    private Long buyerId;
+    private Long projectOwnerId;
     private Long quantity;
     private Long totalPrice;
     private TransactionStatus status;

@@ -1,9 +1,32 @@
 import SimpleTable from '../components/SimpleTable'
 
-function TransactionsPage({ role, form, onChange, onSubmit, transactions, loading }) {
+function TransactionsPage({ role, form, onChange, onSubmit, transactions, users, loading }) {
+  const userMap = new Map(users.map((user) => [String(user.id), user]))
+
+  function formatUser(userId) {
+    if (!userId && userId !== 0) {
+      return '-'
+    }
+
+    const user = userMap.get(String(userId))
+    if (!user) {
+      return `ID: ${userId}`
+    }
+
+    return `${user.name} (${user.email})`
+  }
+
   const rows = transactions.map((transaction) => ({
     id: transaction.id,
-    cells: [transaction.id, transaction.quantity, transaction.totalPrice, transaction.status],
+    cells: [
+      transaction.id,
+      transaction.listingId ?? '-',
+      formatUser(transaction.buyerId),
+      formatUser(transaction.projectOwnerId),
+      transaction.quantity,
+      transaction.totalPrice,
+      transaction.status,
+    ],
   }))
 
   return (
@@ -45,7 +68,7 @@ function TransactionsPage({ role, form, onChange, onSubmit, transactions, loadin
       )}
 
       <SimpleTable
-        columns={['ID', 'Quantity', 'Total price', 'Status']}
+        columns={['ID', 'Listing', 'Buyer', 'Project owner', 'Quantity', 'Total price', 'Status']}
         rows={rows}
         emptyMessage="No transactions recorded."
       />

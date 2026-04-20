@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AppShell from './components/AppShell'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
@@ -107,6 +107,7 @@ function saveStoredAccounts(accounts) {
 }
 
 function App() {
+  const successTimeoutRef = useRef(null)
   const [authenticated, setAuthenticated] = useState(false)
   const [mode, setMode] = useState('login')
   const [currentPage, setCurrentPage] = useState('Dashboard')
@@ -125,7 +126,29 @@ function App() {
   const [transactions, setTransactions] = useState([])
   const [ledger, setLedger] = useState([])
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  function showSuccess(message) {
+    setError('')
+    setSuccessMessage(message)
+
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current)
+    }
+
+    successTimeoutRef.current = setTimeout(() => {
+      setSuccessMessage('')
+    }, 2500)
+  }
 
   async function refreshData() {
     setLoading(true)
@@ -156,6 +179,7 @@ function App() {
   function handleModeChange(nextMode) {
     setMode(nextMode)
     setError('')
+    setSuccessMessage('')
 
     if (nextMode === 'login') {
       setAuthForm(loginAuthForm)
@@ -175,6 +199,7 @@ function App() {
   async function handleSignup() {
     setLoading(true)
     setError('')
+    setSuccessMessage('')
     try {
       if (authForm.role === 'ADMIN') {
         throw new Error('Admin account is fixed. Use the admin credentials to sign in.')
@@ -193,8 +218,10 @@ function App() {
       setCurrentRole(localAccount.role)
       setAuthenticated(true)
       setCurrentPage('Dashboard')
+      showSuccess('Account created successfully.')
       await refreshData()
     } catch (requestError) {
+      setSuccessMessage('')
       setError(requestError.message)
     } finally {
       setLoading(false)
@@ -206,6 +233,7 @@ function App() {
     const inputPassword = String(authForm.password || '')
 
     if (!inputEmail || !inputPassword) {
+      setSuccessMessage('')
       setError('Email and password are required.')
       return
     }
@@ -233,12 +261,13 @@ function App() {
           return nextAccounts
         })
       } catch {
+        setSuccessMessage('')
         setError('Invalid credentials.')
         return
       }
     }
 
-    setError('')
+    showSuccess('Login successful.')
     setSessionUser(selectedUser)
     setCurrentRole(selectedUser.role)
     setAuthenticated(true)
@@ -249,6 +278,7 @@ function App() {
   async function handleCreateProject() {
     setLoading(true)
     setError('')
+    setSuccessMessage('')
     try {
       await api.createProject({
         ...projectForm,
@@ -256,9 +286,11 @@ function App() {
         createdBy: Number(projectForm.createdBy || sessionUser?.id || 1),
       })
       setProjectForm(initialProjectForm)
+      showSuccess('Project created successfully.')
       await refreshData()
       setCurrentPage('Dashboard')
     } catch (requestError) {
+      setSuccessMessage('')
       setError(requestError.message)
     } finally {
       setLoading(false)
@@ -268,6 +300,7 @@ function App() {
   async function handleCreateAdminUser() {
     setLoading(true)
     setError('')
+    setSuccessMessage('')
     try {
       if (currentRole !== 'ADMIN') {
         throw new Error('Only admin can create users.')
@@ -283,8 +316,10 @@ function App() {
         return nextAccounts
       })
       setAdminUserForm(initialAdminUserForm)
+      showSuccess('User created successfully.')
       await refreshData()
     } catch (requestError) {
+      setSuccessMessage('')
       setError(requestError.message)
     } finally {
       setLoading(false)
@@ -294,17 +329,42 @@ function App() {
   async function handleCreateListing() {
     setLoading(true)
     setError('')
+    setSuccessMessage('')
     try {
+      const creditId = Number(listingForm.creditId)
+      const quantity = Number(listingForm.quantity)
+      const price = Number(listingForm.price)
+
+      if (!creditId || !quantity || !price) {
+        throw new Error('Credit ID, quantity, and price are required.')
+      }
+
+      if (quantity <= 0 || price <= 0) {
+        throw new Error('Quantity and price must be greater than 0.')
+      }
+
+      const selectedCredit = credits.find((credit) => String(credit.id) === String(creditId))
+      if (!selectedCredit) {
+        throw new Error('Selected credit was not found.')
+      }
+
+      const availableCredits = Number(selectedCredit.availableCredits || 0)
+      if (quantity > availableCredits) {
+        throw new Error(`Entered quantity exceeds available credits (${availableCredits}).`)
+      }
+
       await api.createListing({
         ...listingForm,
-        creditId: Number(listingForm.creditId),
-        quantity: Number(listingForm.quantity),
-        price: Number(listingForm.price),
+        creditId,
+        quantity,
+        price,
       })
       setListingForm(initialListingForm)
+      showSuccess('Listing created successfully.')
       await refreshData()
       setCurrentPage('Dashboard')
     } catch (requestError) {
+      setSuccessMessage('')
       setError(requestError.message)
     } finally {
       setLoading(false)
@@ -314,16 +374,44 @@ function App() {
   async function handlePurchase() {
     setLoading(true)
     setError('')
+    setSuccessMessage('')
     try {
+      const listingId = Number(transactionForm.listingId)
+      const quantity = Number(transactionForm.quantity)
+
+      if (!listingId || !quantity) {
+        throw new Error('Listing ID and quantity are required.')
+      }
+
+      if (quantity <= 0) {
+        throw new Error('Quantity must be greater than 0.')
+      }
+
+      const selectedListing = listings.find((listing) => String(listing.id) === String(listingId))
+      if (!selectedListing) {
+        throw new Error('Selected listing was not found.')
+      }
+
+      if (selectedListing.status !== 'ACTIVE') {
+        throw new Error('Selected listing is not active.')
+      }
+
+      const availableQuantity = Number(selectedListing.quantity || 0)
+      if (quantity > availableQuantity) {
+        throw new Error(`Entered quantity exceeds available listing quantity (${availableQuantity}).`)
+      }
+
       await api.createTransaction({
         ...transactionForm,
-        listingId: Number(transactionForm.listingId),
-        quantity: Number(transactionForm.quantity),
+        listingId,
+        quantity,
         buyerId: Number(transactionForm.buyerId || sessionUser?.id || 1),
       })
       setTransactionForm(initialTransactionForm)
+      showSuccess('Transaction completed successfully.')
       await refreshData()
     } catch (requestError) {
+      setSuccessMessage('')
       setError(requestError.message)
     } finally {
       setLoading(false)
@@ -333,6 +421,7 @@ function App() {
   async function handleVerifyProject(project, status) {
     setLoading(true)
     setError('')
+    setSuccessMessage('')
     try {
       await api.createVerification({
         projectId: project.id,
@@ -340,8 +429,14 @@ function App() {
         verifiedBy: sessionUser?.id || 1,
         status,
       })
+      showSuccess(
+        status === 'APPROVED'
+          ? 'Project approved successfully.'
+          : 'Project rejected successfully.',
+      )
       await refreshData()
     } catch (requestError) {
+      setSuccessMessage('')
       setError(requestError.message)
     } finally {
       setLoading(false)
@@ -413,6 +508,8 @@ function App() {
         onChange={updateField(setProjectForm)}
         onSubmit={handleCreateProject}
         projects={projects}
+        credits={credits}
+        listings={listings}
         loading={loading}
       />
     )
@@ -421,7 +518,7 @@ function App() {
   if (currentPage === 'Credits') {
     pageTitle = 'Credit Status'
     pageSubtitle = 'Track issued credits and available balances.'
-    pageBody = <CreditsPage credits={credits} />
+    pageBody = <CreditsPage role={currentRole} credits={credits} listings={listings} />
   }
 
   if (currentPage === 'Listings') {
@@ -452,6 +549,7 @@ function App() {
         onChange={updateField(setTransactionForm)}
         onSubmit={handlePurchase}
         transactions={transactions}
+        users={users}
         loading={loading}
       />
     )
@@ -478,6 +576,7 @@ function App() {
         setTransactionForm(initialTransactionForm)
         setAdminUserForm(initialAdminUserForm)
         setError('')
+        setSuccessMessage('')
       }}
     />
   )
@@ -497,10 +596,13 @@ function App() {
   )
 
   return (
-    <AppShell sidebar={sidebar} header={header}>
-      {error ? <p className="error-box">{error}</p> : null}
-      {pageBody}
-    </AppShell>
+    <>
+      {successMessage ? <div className="success-toast">{successMessage}</div> : null}
+      <AppShell sidebar={sidebar} header={header}>
+        {error ? <p className="error-box">{error}</p> : null}
+        {pageBody}
+      </AppShell>
+    </>
   )
 }
 

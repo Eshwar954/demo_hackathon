@@ -23,7 +23,7 @@ function AuthPage({ mode, onModeChange, form, setForm, onLogin, onSignup, error,
           <div className="form-grid two-column">
             <label>
               <span>Email</span>
-              <input name="email" value={form.email} onChange={setForm} placeholder="name@company.com" />
+              <input name="email" value={form.email} onChange={setForm} placeholder="Email" />
             </label>
             <label>
               <span>Password</span>
